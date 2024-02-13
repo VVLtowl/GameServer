@@ -140,28 +140,46 @@ void Server::Accept()
 		//success
 	{
 		m_TCPSockets.emplace(clientID, tempSock);//copy val
-		m_UDPAddrs.emplace(clientID, tempAddr);//copy val
+		//m_UDPAddrs.emplace(clientID, tempAddr);//copy val
 		std::cout << "accept TCP client socket\n";
 		return;
 	}
 }
 
-void Server::SRecvFromC(char* msgBuf)
+int Server::SRecvFromC(char* msgBuf)
 {
-	int clientID = GetEnableClientID();
 	SOCKADDR_IN tempAddr; 
+	int clientID = 0;
+
 	if (RecvFrom(&(m_UDPSocket), msgBuf, &tempAddr) == 0)
 	{
-		std::cout << "wait, enable ID: " <<clientID <<std::endl;
-		return;
+		std::cout << "wait, enable ID: " <<m_EnableID <<std::endl;
+		return -1;
 	}
-	m_UDPAddrs.emplace(clientID, tempAddr);
-	m_EnableID++;
+	else
+	{
+		for (clientID = 0; clientID < m_EnableID; clientID++)
+		{
+			if ((m_UDPAddrs[clientID]).sin_addr.s_addr == tempAddr.sin_addr.s_addr)
+			{
+				break;
+			}
+		}
+
+		//check if client address exist
+		if (clientID == m_EnableID)//if has address
+		{
+			m_UDPAddrs.emplace_back(tempAddr);
+			m_EnableID++;
+		}
+	}
 
 	//show client ip
 	char ipBuffer[LEN_MSG]; // 定义用于存储 IP 地址字符串的缓冲区
 	inet_ntop(AF_INET, &(tempAddr.sin_addr), ipBuffer, INET_ADDRSTRLEN); // 将二进制 IP 地址转换为字符串形式
 	std::cout <<"["<< ipBuffer <<"]: " << msgBuf << std::endl;
+
+	return clientID;
 }
 
 int Server::GetEnableClientID()

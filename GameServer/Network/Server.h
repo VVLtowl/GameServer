@@ -1,6 +1,7 @@
 #pragma once
 #include "NetworkCommon.h"
 #include <unordered_map>
+#include <vector>
 
 class Server:
 	public NetworkUnit
@@ -10,7 +11,7 @@ public:
 	void Bind();
 	void Listen();
 	void Accept();
-	void SRecvFromC(char* msgBuf);//UDP
+	int SRecvFromC(char* msgBuf);//UDP, return clientID
 
 private:
 	int m_EnableID;
@@ -22,9 +23,9 @@ public:
 
 	//UDP
 	SOCKET m_UDPSocket;
-	std::unordered_map<int, SOCKADDR_IN> m_UDPAddrs;
+	std::vector<SOCKADDR_IN> m_UDPAddrs;
 	
-	//TCP
+	//TCP todo: repair
 	SOCKET m_TCPListenSocket;
 	std::unordered_map<int, SOCKET> m_TCPSockets;
 
