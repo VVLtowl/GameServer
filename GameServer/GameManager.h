@@ -1,5 +1,5 @@
 #pragma once
-#include "Network/NetworkCommon.h"
+#include "NetworkCommon.h"
 
 #define SCREEN_WIDTH	(960)
 #define SCREEN_HEIGHT	(540)
@@ -73,8 +73,7 @@ public:
 	State state;
 
 	//game object
-	Player player1;
-	Player player2;
+	Player player[2];
 	Shuttle shuttle;
 
 	//time control
@@ -82,7 +81,7 @@ public:
 	SHORT FPS;
 
 	//server
-	class Server server;
+	Server server;
 
 
 public:
@@ -91,5 +90,7 @@ public:
 
 private:
 	void UpdateServer();//execute commands
+	void InitPlayer();
+	void UpdatePlayer();
 };
 

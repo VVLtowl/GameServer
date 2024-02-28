@@ -13,8 +13,8 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
-    <Filter Include="Network">
-      <UniqueIdentifier>{c535ec0f-d708-40ee-ba2f-23f012eb5822}</UniqueIdentifier>
+    <Filter Include="LinkItem">
+      <UniqueIdentifier>{baad8912-3b31-4526-aacf-c664be0bcd1a}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -24,28 +24,34 @@
     <ClCompile Include="GameManager.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="Network\Client.cpp">
-      <Filter>Network</Filter>
+    <ClCompile Include="..\..\GameNetworkCommon\GameNetworkCommon\GameNetworkCommon\Client.cpp">
+      <Filter>LinkItem</Filter>
     </ClCompile>
-    <ClCompile Include="Network\NetworkCommon.cpp">
-      <Filter>Network</Filter>
+    <ClCompile Include="..\..\GameNetworkCommon\GameNetworkCommon\GameNetworkCommon\NetworkCommon.cpp">
+      <Filter>LinkItem</Filter>
     </ClCompile>
-    <ClCompile Include="Network\Server.cpp">
-      <Filter>Network</Filter>
+    <ClCompile Include="..\..\GameNetworkCommon\GameNetworkCommon\GameNetworkCommon\SerializedTool.cpp">
+      <Filter>LinkItem</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GameNetworkCommon\GameNetworkCommon\GameNetworkCommon\Server.cpp">
+      <Filter>LinkItem</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameManager.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="Network\Client.h">
-      <Filter>Network</Filter>
+    <ClInclude Include="..\..\GameNetworkCommon\GameNetworkCommon\GameNetworkCommon\Client.h">
+      <Filter>LinkItem</Filter>
     </ClInclude>
-    <ClInclude Include="Network\NetworkCommon.h">
-      <Filter>Network</Filter>
+    <ClInclude Include="..\..\GameNetworkCommon\GameNetworkCommon\GameNetworkCommon\NetworkCommon.h">
+      <Filter>LinkItem</Filter>
     </ClInclude>
-    <ClInclude Include="Network\Server.h">
-      <Filter>Network</Filter>
+    <ClInclude Include="..\..\GameNetworkCommon\GameNetworkCommon\GameNetworkCommon\SerializedTool.h">
+      <Filter>LinkItem</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GameNetworkCommon\GameNetworkCommon\GameNetworkCommon\Server.h">
+      <Filter>LinkItem</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

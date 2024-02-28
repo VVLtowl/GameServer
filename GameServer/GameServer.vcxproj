@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -72,15 +72,19 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
+    <ExternalIncludePath>D:\HAL\GM31\MyWork\Winsock\WinsockGame\GameNetworkCommon\GameNetworkCommon\GameNetworkCommon;$(ExternalIncludePath)</ExternalIncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
+    <ExternalIncludePath>D:\HAL\GM31\MyWork\Winsock\WinsockGame\GameNetworkCommon\GameNetworkCommon\GameNetworkCommon;$(ExternalIncludePath)</ExternalIncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
+    <ExternalIncludePath>D:\HAL\GM31\MyWork\Winsock\WinsockGame\GameNetworkCommon\GameNetworkCommon\GameNetworkCommon;$(ExternalIncludePath)</ExternalIncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
+    <ExternalIncludePath>D:\HAL\GM31\MyWork\Winsock\WinsockGame\GameNetworkCommon\GameNetworkCommon\GameNetworkCommon;$(ExternalIncludePath)</ExternalIncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -139,17 +143,19 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\GameNetworkCommon\GameNetworkCommon\GameNetworkCommon\Client.cpp" />
+    <ClCompile Include="..\..\GameNetworkCommon\GameNetworkCommon\GameNetworkCommon\NetworkCommon.cpp" />
+    <ClCompile Include="..\..\GameNetworkCommon\GameNetworkCommon\GameNetworkCommon\SerializedTool.cpp" />
+    <ClCompile Include="..\..\GameNetworkCommon\GameNetworkCommon\GameNetworkCommon\Server.cpp" />
     <ClCompile Include="GameManager.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="Network\Client.cpp" />
-    <ClCompile Include="Network\NetworkCommon.cpp" />
-    <ClCompile Include="Network\Server.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\GameNetworkCommon\GameNetworkCommon\GameNetworkCommon\Client.h" />
+    <ClInclude Include="..\..\GameNetworkCommon\GameNetworkCommon\GameNetworkCommon\NetworkCommon.h" />
+    <ClInclude Include="..\..\GameNetworkCommon\GameNetworkCommon\GameNetworkCommon\SerializedTool.h" />
+    <ClInclude Include="..\..\GameNetworkCommon\GameNetworkCommon\GameNetworkCommon\Server.h" />
     <ClInclude Include="GameManager.h" />
-    <ClInclude Include="Network\Client.h" />
-    <ClInclude Include="Network\NetworkCommon.h" />
-    <ClInclude Include="Network\Server.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
