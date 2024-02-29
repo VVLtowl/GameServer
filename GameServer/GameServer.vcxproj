@@ -145,6 +145,7 @@
   <ItemGroup>
     <ClCompile Include="..\..\GameNetworkCommon\GameNetworkCommon\GameNetworkCommon\Client.cpp" />
     <ClCompile Include="..\..\GameNetworkCommon\GameNetworkCommon\GameNetworkCommon\NetworkCommon.cpp" />
+    <ClCompile Include="..\..\GameNetworkCommon\GameNetworkCommon\GameNetworkCommon\NetworkGameData.cpp" />
     <ClCompile Include="..\..\GameNetworkCommon\GameNetworkCommon\GameNetworkCommon\SerializedTool.cpp" />
     <ClCompile Include="..\..\GameNetworkCommon\GameNetworkCommon\GameNetworkCommon\Server.cpp" />
     <ClCompile Include="GameManager.cpp" />
@@ -153,6 +154,7 @@
   <ItemGroup>
     <ClInclude Include="..\..\GameNetworkCommon\GameNetworkCommon\GameNetworkCommon\Client.h" />
     <ClInclude Include="..\..\GameNetworkCommon\GameNetworkCommon\GameNetworkCommon\NetworkCommon.h" />
+    <ClInclude Include="..\..\GameNetworkCommon\GameNetworkCommon\GameNetworkCommon\NetworkGameData.h" />
     <ClInclude Include="..\..\GameNetworkCommon\GameNetworkCommon\GameNetworkCommon\SerializedTool.h" />
     <ClInclude Include="..\..\GameNetworkCommon\GameNetworkCommon\GameNetworkCommon\Server.h" />
     <ClInclude Include="GameManager.h" />

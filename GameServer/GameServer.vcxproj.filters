@@ -36,6 +36,9 @@
     <ClCompile Include="..\..\GameNetworkCommon\GameNetworkCommon\GameNetworkCommon\Server.cpp">
       <Filter>LinkItem</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\GameNetworkCommon\GameNetworkCommon\GameNetworkCommon\NetworkGameData.cpp">
+      <Filter>LinkItem</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameManager.h">
@@ -51,6 +54,9 @@
       <Filter>LinkItem</Filter>
     </ClInclude>
     <ClInclude Include="..\..\GameNetworkCommon\GameNetworkCommon\GameNetworkCommon\Server.h">
+      <Filter>LinkItem</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GameNetworkCommon\GameNetworkCommon\GameNetworkCommon\NetworkGameData.h">
       <Filter>LinkItem</Filter>
     </ClInclude>
   </ItemGroup>

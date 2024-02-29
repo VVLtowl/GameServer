@@ -5,6 +5,7 @@
 #include <winsock2.h>
 #include <windows.h> 
 #include "GameManager.h"
+#include "NetworkGameData.h"
 
 
 
@@ -29,6 +30,10 @@ void GameManager::Start()
 
 	//set state
 	state = State::ServerListen;
+
+	//init network manager
+	NetworkManager::InitServer();
+	InitNetworkCommands();
 }
 
 void GameManager::Loop()
@@ -49,6 +54,24 @@ void GameManager::Loop()
 	}
 }
 
+void GameManager::InitNetworkCommands()
+{
+	NetworkManager::SetCommand(
+		BHID_C2S::Player_InputMove,
+		[&](const MsgContent& msg)
+		{
+			//get data
+			auto data = (Data_C2S_PlayerMove*)msg.Data;
+
+			Vector3 move;
+			move.x = data->leftRight;
+			move.z = data->upDown;
+			int clientID = data->id;
+
+			player[clientID].Move(move);
+		});
+}
+
 void GameManager::UpdateServer()
 {
 	switch (state)
@@ -67,8 +90,9 @@ void GameManager::UpdateServer()
 		}
 
 		//if two players start game
-		if (clientID == 1)
+		if (clientID == 0)
 		{
+			sprintf(msgBuf, "test addr msg!");
 			InitPlayer();
 		}
 	}
@@ -85,11 +109,24 @@ void GameManager::UpdateServer()
 		//try udp, get client player input
 		char msgBuf[LEN_MSG];
 		int clientID = server.SRecvFromC(msgBuf);
+		
+		if (clientID>=0)
+		{
+			MsgContent msg;
+			DecodeMsgContent(msgBuf, msg);
+			int bhid = msg.BHID;
 
-		//prepare variables
+			if (bhid >= 0)
+			{
+				auto data = (Data_C2S_PlayerMove*)msg.Data;
+
+				NetworkManager::Commands[bhid](msg);
+			}
+		}
+
 
 		//analyze command
-		if (strcmp(msgBuf, "left")==0)
+	/*	if (strcmp(msgBuf, "left")==0)
 		{
 			Vector3 move;
 			move.x = -1;
@@ -100,7 +137,7 @@ void GameManager::UpdateServer()
 			Vector3 move;
 			move.x = 1;
 			player[clientID].Move(move);
-		}
+		}*/
 	}
 	break;
 
@@ -129,12 +166,36 @@ void GameManager::UpdatePlayer()
 	std::cout << "update player" << std::endl;
 
 	char msgBuf[LEN_MSG];
-	for (int clientID = 0; clientID < 2; clientID++)
+	for (int clientID = 0; clientID < 1; clientID++)
 	{
-		for (int playerID = 0; playerID < 2; playerID++)
+		Data_S2C_ObjectPos data;
+		sizeof(data);
+		
+		data.player1X = player[0].position.x;
+		data.player1Y = player[0].position.y;
+		data.player1Z = player[0].position.z;
+
+		data.player2X = player[1].position.x;
+		data.player2Y = player[1].position.y;
+		data.player2Z = player[1].position.z;
+
+		data.shuttleX = shuttle.position.x;
+		data.shuttleY = shuttle.position.y;
+		data.shuttleZ = shuttle.position.z;
+
+		MsgContent msg;
+		msg.BHID = (int)BHID_S2C::Object_Position;
+		msg.DataLen = sizeof(data);
+		msg.Data = (void*)(&data);
+
+		auto msgBuf = EncodeMsgContent(msg);
+		server.SendTo(&(server.m_UDPSocket), msgBuf, &(server.m_UDPAddrs[clientID]));
+
+		//give up
+		/*for (int playerID = 0; playerID < 2; playerID++)
 		{
 			sprintf(msgBuf, "%d%lf", playerID,player[playerID].position.x);
 			server.SendTo(&(server.m_UDPSocket), msgBuf, &(server.m_UDPAddrs[clientID]));
-		}
+		}*/
 	}
 }

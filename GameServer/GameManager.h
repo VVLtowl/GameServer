@@ -1,5 +1,8 @@
 #pragma once
 #include "NetworkCommon.h"
+#include "SerializedTool.h"
+#include <functional>
+#include <vector>
 
 #define SCREEN_WIDTH	(960)
 #define SCREEN_HEIGHT	(540)
@@ -8,9 +11,9 @@
 
 struct Vector3
 {
-	float x;
-	float y;
-	float z;
+	float x=0;
+	float y=0;
+	float z=0;
 };
 
 #pragma region ========== player ==========
@@ -89,6 +92,7 @@ public:
 	void Loop();
 
 private:
+	void InitNetworkCommands();
 	void UpdateServer();//execute commands
 	void InitPlayer();
 	void UpdatePlayer();
