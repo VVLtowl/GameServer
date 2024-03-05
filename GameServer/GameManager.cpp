@@ -8,15 +8,16 @@
 #include "NetworkGameData.h"
 
 
-
-
+#pragma region ========== player ==========
 void Player::Move(Vector3 dir)
 {
 	position.x += dir.x;
 	position.y += dir.y;
 	position.z += dir.z;
 }
+#pragma endregion
 
+#pragma region ========== game manager ==========
 void GameManager::Start()
 {
 	//init data
@@ -28,174 +29,335 @@ void GameManager::Start()
 	server.Bind();
 	//server.Listen();
 
-	//set state
-	state = State::ServerListen;
-
 	//init network manager
 	NetworkManager::InitServer();
 	InitNetworkCommands();
+	InitUpdatersAndEvents();
+	InitPlayer();
+
+	//set first state
+	SetState(State::WaitGame);
+}
+
+void GameManager::InitUpdatersAndEvents()
+{
+	//set updater fps
+	update_recvClient.FPS = 1000;
+	update_gameLoop.FPS = 60;
+	update_syncClient.FPS = 30;
+
+	//set up events
+	{
+		DoNothing = []()
+		{
+			//do nothing
+		};
+		RecvFromClients = [&]()
+		{
+			char msgBuf[LEN_MSG];
+			int clientID = server.SRecvFromC(msgBuf);
+
+			if (clientID >= 0)
+			{
+				MsgContent msg;
+				DecodeMsgContent(msgBuf, msg);
+				int bhid = msg.BHID;
+				if (bhid >= 0)
+				{
+					NetworkManager::Commands[bhid](msg);
+				}
+			}
+		};
+		UpdateGame = []()
+		{
+			//update objects' motion
+
+		};
+		SyncObjectsOfClients = [&]()
+		{
+			//send objects' data to all clients
+			Data_S2C_ObjectPos2 data;
+			SetUpObjectsPosData(data);
+			MsgContent msg;
+			msg.BHID = (int)BHID_S2C::SyncObjectPosition;
+			msg.DataLen = sizeof(data);
+			msg.Data = (void*)(&data);
+			SendToAll(msg);
+		};
+	}
+}
+
+void GameManager::SetState(State sta)
+{
+	state = sta;
+	NetworkManager::ResetCommands();
+
+	switch (state)
+	{
+	case State::WaitGame:
+	{
+		//set up update event
+		update_recvClient.SetUpdateEvent(RecvFromClients);
+		update_gameLoop.SetUpdateEvent(DoNothing);
+		update_syncClient.SetUpdateEvent(SyncObjectsOfClients);
+
+		//set up recv command
+		NetworkManager::SetCommand(
+			BHID_C2S::User_TryJoin,
+			ApproveUserJoin);
+
+		NetworkManager::SetCommand(
+			BHID_C2S::Player_InputMove,
+			MovePlayer);
+
+		NetworkManager::SetCommand(
+			BHID_C2S::User_Quit,
+			ApproveUserQuit);
+	}
+	break;
+
+	case State::Playing:
+	{
+		//set up update event
+		update_recvClient.SetUpdateEvent(RecvFromClients);
+		update_gameLoop.SetUpdateEvent(UpdateGame);
+		update_syncClient.SetUpdateEvent(SyncObjectsOfClients);
+
+		//set up recv command
+		NetworkManager::SetCommand(
+			BHID_C2S::User_TryJoin,
+			RefuseUserJoin);
+
+		NetworkManager::SetCommand(
+			BHID_C2S::Player_InputMove,
+			MovePlayer);
+
+		NetworkManager::SetCommand(
+			BHID_C2S::Player_InputHit,
+			PlayerTryHit);
+
+		NetworkManager::SetCommand(
+			BHID_C2S::User_Quit,
+			ApproveUserQuit);
+	}
+
+	break;
+
+	}
+
 }
 
 void GameManager::Loop()
 {
 	while (1)
 	{
-		DWORD dwCurrentTime = timeGetTime();
-
-		//update
-		UpdateServer();
-
-		if ((dwCurrentTime - dwExecLastTime) >= (1000 / FPS))
-		{
-			dwExecLastTime = dwCurrentTime;
-
-			UpdatePlayer();
-		}
+		update_recvClient.Update();
+		update_gameLoop.Update();
+		update_syncClient.Update();
 	}
 }
 
 void GameManager::InitNetworkCommands()
 {
-	NetworkManager::SetCommand(
-		BHID_C2S::Player_InputMove,
-		[&](const MsgContent& msg)
-		{
-			//get data
-			auto data = (Data_C2S_PlayerMove*)msg.Data;
-
-			Vector3 move;
-			move.x = data->leftRight;
-			move.z = data->upDown;
-			int clientID = data->id;
-
-			player[clientID].Move(move);
-		});
-}
-
-void GameManager::UpdateServer()
-{
-	switch (state)
+	ApproveUserJoin = [&](const MsgContent& msg)
 	{
-	case State::ServerListen:
-	{
-		//server.Accept();
+		//set id
+		int clientID = server.m_UDPAddrs.size() - 1;
 
-		//try udp
-		char msgBuf[LEN_MSG];
-		int clientID = server.SRecvFromC(msgBuf);
-		if (clientID >= 0)
+		//send exist players to this client
 		{
-			sprintf(msgBuf, "test addr msg!");
-			server.SendTo(&(server.m_UDPSocket), msgBuf,&(server.m_UDPAddrs[clientID]));
-		}
-
-		//if two players start game
-		if (clientID == 0)
-		{
-			sprintf(msgBuf, "test addr msg!");
-			InitPlayer();
-		}
-	}
-	break;
-
-	case State::ServerReadyToGame:
-	{
-
-	}
-	break;
-
-	case State::GameLoop:
-	{
-		//try udp, get client player input
-		char msgBuf[LEN_MSG];
-		int clientID = server.SRecvFromC(msgBuf);
-		
-		if (clientID>=0)
-		{
+			Data_S2C_ObjectPos2 data;
+			SetUpObjectsPosData(data);
 			MsgContent msg;
-			DecodeMsgContent(msgBuf, msg);
-			int bhid = msg.BHID;
-
-			if (bhid >= 0)
-			{
-				auto data = (Data_C2S_PlayerMove*)msg.Data;
-
-				NetworkManager::Commands[bhid](msg);
-			}
+			msg.BHID = (int)BHID_S2C::AddExistPlayers;
+			msg.DataLen = sizeof(data);
+			msg.Data = (void*)(&data);
+			SendToOne(clientID, msg);
 		}
 
+		//create player
+		Player player;
+		players.emplace_back(player);
+		auto newPlayer = &players[clientID];
 
-		//analyze command
-	/*	if (strcmp(msgBuf, "left")==0)
+		//check client id and send to this client
 		{
-			Vector3 move;
-			move.x = -1;
-			player[clientID].Move(move);
+			Data_UserID data;
+			data.id = clientID;
+			MsgContent msg;
+			msg.BHID = (int)BHID_S2C::SetID;
+			msg.DataLen = sizeof(data);
+			msg.Data = (void*)(&data);
+			SendToOne(clientID, msg);
 		}
-		else if (strcmp(msgBuf, "right")==0)
-		{
-			Vector3 move;
-			move.x = 1;
-			player[clientID].Move(move);
-		}*/
-	}
-	break;
 
-	}
+		//send player information to all clients
+		{
+			Data_Pos data;
+			//test set start position of player
+			newPlayer->position.x = clientID;
+			newPlayer->position.y = 0;
+			newPlayer->position.z = 1;
+			data.x = newPlayer->position.x;
+			data.y = newPlayer->position.y;
+			data.z = newPlayer->position.z;
+			MsgContent msg;
+			msg.BHID = (int)BHID_S2C::AddPlayer;
+			msg.DataLen = sizeof(data);
+			msg.Data = (void*)&data;
+			SendToAll(msg);
+		}
+	};
+	RefuseUserJoin = [&](const MsgContent& msg)
+	{
+		//todo
+	};
+	MovePlayer = [&](const MsgContent& msg)
+	{
+		auto data = (Data_C2S_PlayerMove*)msg.Data;
+
+		//move player
+		int clientID = data->id;
+		Vector3 move;
+		move.x = data->leftRight;
+		move.z = data->upDown;
+		players[clientID].Move(move);
+	};
+	PlayerTryHit = [&](const MsgContent& msg)
+	{
+		//todo
+	};
+	ApproveUserQuit = [&](const MsgContent& msg)
+	{
+		auto data = (Data_UserID*)msg.Data;
+
+		//remove player,
+		//dont remove udpaddress because need to use address to approve client quit 
+		int clientID = data->id;
+		players.erase(players.begin() + clientID);
+
+		//approve client quit
+		MsgContent msg2;
+		msg2.BHID = (int)BHID_S2C::ApproveQuit;
+		SendToOne(clientID, msg2);
+
+		//reset clients id
+		//remove addr at first
+		server.RemoveAddr(clientID);
+		SendRemovePlayer(clientID);
+		ResetClientsID();
+	};
 }
 
 void GameManager::InitPlayer()
 {
 	std::cout << "init player" << std::endl;
 
-	player[0].position.x = 0;
-	player[0].position.y = 0;
-	player[0].position.z = 1;
-
-	player[1].position.x = 0;
-	player[1].position.y = 0;
-	player[1].position.z = -1;
-
-	state = State::GameLoop;
+	players.clear();
 }
 
-void GameManager::UpdatePlayer()
+void GameManager::SendToAll(const MsgContent& msg)
 {
-	if (state != State::GameLoop)return;
-
-	std::cout << "update player" << std::endl;
-
-	char msgBuf[LEN_MSG];
-	for (int clientID = 0; clientID < 1; clientID++)
+	for (int clientID = 0; clientID < players.size(); clientID++)
 	{
-		Data_S2C_ObjectPos data;
-		sizeof(data);
-		
-		data.player1X = player[0].position.x;
-		data.player1Y = player[0].position.y;
-		data.player1Z = player[0].position.z;
-
-		data.player2X = player[1].position.x;
-		data.player2Y = player[1].position.y;
-		data.player2Z = player[1].position.z;
-
-		data.shuttleX = shuttle.position.x;
-		data.shuttleY = shuttle.position.y;
-		data.shuttleZ = shuttle.position.z;
-
-		MsgContent msg;
-		msg.BHID = (int)BHID_S2C::Object_Position;
-		msg.DataLen = sizeof(data);
-		msg.Data = (void*)(&data);
-
-		auto msgBuf = EncodeMsgContent(msg);
-		server.SendTo(&(server.m_UDPSocket), msgBuf, &(server.m_UDPAddrs[clientID]));
-
-		//give up
-		/*for (int playerID = 0; playerID < 2; playerID++)
-		{
-			sprintf(msgBuf, "%d%lf", playerID,player[playerID].position.x);
-			server.SendTo(&(server.m_UDPSocket), msgBuf, &(server.m_UDPAddrs[clientID]));
-		}*/
+		SendToOne(clientID, msg);
 	}
 }
+
+void GameManager::SendToOne(int clientID, const MsgContent& msg)
+{
+	auto msgBuf = EncodeMsgContent(msg);
+	server.SendTo(&(server.m_UDPSocket), msgBuf, &(server.m_UDPAddrs[clientID]));
+}
+
+void GameManager::ResetClientsID()
+{
+	for (int i = 0; i < server.m_UDPAddrs.size(); i++)
+	{
+		Data_UserID data;
+		data.id = i;
+		MsgContent msg;
+		msg.BHID = (int)BHID_S2C::SetID;
+		msg.DataLen = sizeof(data);
+		msg.Data = (void*)(&data);
+		SendToOne(i, msg);
+	}
+}
+
+void GameManager::SetUpObjectsPosData(Data_S2C_ObjectPos2& outData)
+{
+	//player amount plus shuttle
+	outData.max = players.size() + 1;
+
+	//set shuttle's pos
+	outData.pos[0].x = shuttle.position.x;
+	outData.pos[0].y = shuttle.position.y;
+	outData.pos[0].z = shuttle.position.z;
+
+	//set all players' pos
+	for (int i = 0; i < players.size(); i++)
+	{
+		if (i + 1 >= outData.max)
+		{
+			std::cout << "oversize objects\n";
+			continue;
+		}
+
+		outData.pos[i + 1].x = players[i].position.x;
+		outData.pos[i + 1].y = players[i].position.y;
+		outData.pos[i + 1].z = players[i].position.z;
+	}
+}
+
+void GameManager::SendRemovePlayer(int removeClientID)
+{
+	for (int i = 0; i < server.m_UDPAddrs.size(); i++)
+	{
+		Data_UserID data;
+		data.id = removeClientID;
+		MsgContent msg;
+		msg.BHID = (int)BHID_S2C::RemovePlayer;
+		msg.DataLen = sizeof(data);
+		msg.Data = (void*)(&data);
+		SendToOne(i, msg);
+	}
+}
+
+#pragma endregion
+
+#pragma region ========== updater ==========
+void Updater::Update()
+{
+	DWORD dwCurrentTime = timeGetTime();
+
+	//fixed update
+	if ((dwCurrentTime - dwExecLastTime) >= (1000 / FPS))
+	{
+		dwExecLastTime = dwCurrentTime;
+
+		UpdateEvent();
+	}
+}
+
+void Updater::SetUpdateEvent(std::function<void()> func)
+{
+	UpdateEvent = func;
+}
+#pragma endregion
+
+
+
+#pragma region ========== team ==========
+
+void Team::AddMember(Player* player)
+{
+	members.emplace_back(player);
+	player->team = this;
+}
+
+void Team::RemoveMember(Player* player)
+{
+	members.remove(player);
+}
+
+#pragma endregion
