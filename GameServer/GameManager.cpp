@@ -7,13 +7,139 @@
 #include "GameManager.h"
 #include "NetworkGameData.h"
 
+#include <thread>
+#include <mutex>
+
 
 #pragma region ========== player ==========
+void Player::ChangeToState(PlayerStateType type)
+{
+	if (type==nowState) return;
+
+	auto pair = states.find(type);
+	//State* newState = pair->second;
+
+	if (state != nullptr)
+	{
+		state->End();
+	}
+	pair->second->Start();
+
+	nowState = type;
+	state = pair->second;
+}
+
+void Player::Init()
+{
+	//set up state
+	//set up state idle
+	state_idle.type = PlayerStateType::Idle;
+	state_idle.isLoop = true;
+	//set up state run
+	state_run.type = PlayerStateType::Run;
+	//set up state hit
+	state_hit.type = PlayerStateType::Hit;
+	state_hit.isLoop = false;
+	state_hit.maxFrame = 1000;
+	state_hit.UpdateEvent = [&]()
+	{
+		//state_hit;
+		std::cout << "update";
+	};
+	state_hit.NextEvent = [&]()
+	{
+		ChangeToState(PlayerStateType::Idle);
+	};
+
+	//emplace to map
+	states.emplace(PlayerStateType::Hit, &state_hit);
+	states.emplace(PlayerStateType::Idle, &state_idle);
+	states.emplace(PlayerStateType::Run, &state_run);
+
+	//set first state
+	ChangeToState(PlayerStateType::Idle);
+}
+
+void Player::Update()
+{
+	//check hit
+	float rot = 0;
+	if (hitInfo.IsHit(rot))
+	{
+		ChangeToState(PlayerStateType::Hit);
+	}
+
+	//update state (state pattern)
+	if (state != nullptr)
+	{
+		state->Update();
+	}
+}
+
 void Player::Move(Vector3 dir)
 {
 	position.x += dir.x;
 	position.y += dir.y;
 	position.z += dir.z;
+}
+
+void Player::Hit(float rot)
+{
+	hitInfo.TriggerHitRot(rot);
+}
+
+
+void Player::Hit::TriggerHitRot(float rot)
+{
+	isHit = true;
+	this->rot = rot;
+}
+bool Player::Hit::IsHit(float& outRot)
+{
+	outRot = rot;
+	bool temp = isHit;
+	isHit = false;
+	return temp;
+}
+
+Player::State::State()
+{
+	StartEvent = []() {};
+	UpdateEvent = []() {};
+	EndEvent = []() {};
+	NextEvent = []() {};
+}
+void Player::State::Start()
+{
+	frameCount = 0;
+	StartEvent();
+}
+void Player::State::Update()
+{
+	frameCount++;
+
+	if (frameCount > maxFrame)
+	{
+		if (isLoop)
+		{
+			frameCount = 0;
+		}
+		else
+		{
+			NextEvent();
+		}
+	}
+
+	UpdateEvent();
+}
+void Player::State::End()
+{
+	frameCount = 0;
+	EndEvent();
+}
+void Player::State::NextState()
+{
+	NextEvent();
 }
 #pragma endregion
 
@@ -44,116 +170,85 @@ void GameManager::InitUpdatersAndEvents()
 	//set updater fps
 	update_recvClient.FPS = 1000;
 	update_gameLoop.FPS = 60;
-	update_syncClient.FPS = 30;
+	update_syncClient.FPS = 1000;
 
 	//set up events
 	{
-		DoNothing = []()
+		DoNothing = [&]()
 		{
 			//do nothing
+			//for (int i = 0; i < players.size(); i++)
+			//{
+			//	Vector3 mov;
+			//	mov.x = 1.0f / update_gameLoop.FPS;
+			//	players[i].Move(mov);
+			//}
+		};
+		TestPlayerHit = [&]()
+		{
+			//update players to check hit
+			for (int id = 0; id < players.size(); id++)
+			{
+				players[id]->Update();
+			}
 		};
 		RecvFromClients = [&]()
 		{
 			char msgBuf[LEN_MSG];
-			int clientID = server.SRecvFromC(msgBuf);
-
-			if (clientID >= 0)
+			while(1)
 			{
-				MsgContent msg;
-				DecodeMsgContent(msgBuf, msg);
-				int bhid = msg.BHID;
-				if (bhid >= 0)
+				int clientID = server.SRecvFromC(msgBuf, true);
+
+				if (clientID >= 0)
 				{
-					NetworkManager::Commands[bhid](msg);
+					MsgContent msg;
+					DecodeMsgContent(msgBuf, msg);
+					int bhid = msg.BHID;
+					if (bhid >= 0)
+					{
+						NetworkManager::Commands[bhid](msg);
+					}
+				}
+				else
+				{
+					break;
 				}
 			}
 		};
-		UpdateGame = []()
+		UpdateGame = [&]()
 		{
 			//update objects' motion
-
+			//update players
+			for (int id = 0; id < players.size(); id++)
+			{
+				players[id]->Update();
+			}
 		};
 		SyncObjectsOfClients = [&]()
 		{
 			//send objects' data to all clients
-			Data_S2C_ObjectPos2 data;
-			SetUpObjectsPosData(data);
-			MsgContent msg;
-			msg.BHID = (int)BHID_S2C::SyncObjectPosition;
-			msg.DataLen = sizeof(data);
-			msg.Data = (void*)(&data);
-			SendToAll(msg);
+			{
+				Data_S2C_ObjectPos2 data;
+				SetUpObjectsPosData(data);
+				MsgContent msg;
+				msg.BHID = (int)BHID_S2C::SyncObjectPosition;
+				msg.DataLen = sizeof(data);
+				msg.Data = (void*)(&data);
+				SendToAll(msg);
+			}
+
+
+			//send players' data to all clients
+			{
+				Data_S2C_PlayerState data;
+				SetUpPlayersStateData(data);
+				MsgContent msg;
+				msg.BHID = (int)BHID_S2C::SyncPlayerState;
+				msg.DataLen = sizeof(data);
+				msg.Data = (void*)(&data);
+				SendToAll(msg);
+			}
 		};
-	}
-}
-
-void GameManager::SetState(State sta)
-{
-	state = sta;
-	NetworkManager::ResetCommands();
-
-	switch (state)
-	{
-	case State::WaitGame:
-	{
-		//set up update event
-		update_recvClient.SetUpdateEvent(RecvFromClients);
-		update_gameLoop.SetUpdateEvent(DoNothing);
-		update_syncClient.SetUpdateEvent(SyncObjectsOfClients);
-
-		//set up recv command
-		NetworkManager::SetCommand(
-			BHID_C2S::User_TryJoin,
-			ApproveUserJoin);
-
-		NetworkManager::SetCommand(
-			BHID_C2S::Player_InputMove,
-			MovePlayer);
-
-		NetworkManager::SetCommand(
-			BHID_C2S::User_Quit,
-			ApproveUserQuit);
-	}
-	break;
-
-	case State::Playing:
-	{
-		//set up update event
-		update_recvClient.SetUpdateEvent(RecvFromClients);
-		update_gameLoop.SetUpdateEvent(UpdateGame);
-		update_syncClient.SetUpdateEvent(SyncObjectsOfClients);
-
-		//set up recv command
-		NetworkManager::SetCommand(
-			BHID_C2S::User_TryJoin,
-			RefuseUserJoin);
-
-		NetworkManager::SetCommand(
-			BHID_C2S::Player_InputMove,
-			MovePlayer);
-
-		NetworkManager::SetCommand(
-			BHID_C2S::Player_InputHit,
-			PlayerTryHit);
-
-		NetworkManager::SetCommand(
-			BHID_C2S::User_Quit,
-			ApproveUserQuit);
-	}
-
-	break;
-
-	}
-
-}
-
-void GameManager::Loop()
-{
-	while (1)
-	{
-		update_recvClient.Update();
-		update_gameLoop.Update();
-		update_syncClient.Update();
 	}
 }
 
@@ -176,9 +271,11 @@ void GameManager::InitNetworkCommands()
 		}
 
 		//create player
-		Player player;
-		players.emplace_back(player);
-		auto newPlayer = &players[clientID];
+		auto p = new Player();
+		players.emplace_back(p);
+		auto newPlayer = players[clientID];
+		newPlayer->id = clientID;
+		newPlayer->Init();
 
 		//check client id and send to this client
 		{
@@ -219,13 +316,19 @@ void GameManager::InitNetworkCommands()
 		//move player
 		int clientID = data->id;
 		Vector3 move;
-		move.x = data->leftRight;
-		move.z = data->upDown;
-		players[clientID].Move(move);
+		move.x = (float)(data->leftRight) / (float)(update_gameLoop.FPS)*5;
+		move.z = (float)(data->upDown) / (float)(update_gameLoop.FPS)*5;
+		players[clientID]->Move(move);
 	};
 	PlayerTryHit = [&](const MsgContent& msg)
 	{
 		//todo
+		auto data = (Data_C2S_PlayerHit*)msg.Data;
+
+		//move player
+		int clientID = data->id;
+		float rot = data->rot;
+		players[clientID]->Hit(rot);
 	};
 	ApproveUserQuit = [&](const MsgContent& msg)
 	{
@@ -254,6 +357,83 @@ void GameManager::InitPlayer()
 	std::cout << "init player" << std::endl;
 
 	players.clear();
+}
+
+void GameManager::SetState(State sta)
+{
+	state = sta;
+	NetworkManager::ResetCommands();
+
+	switch (state)
+	{
+	case State::WaitGame:
+	{
+		//set up update event
+		update_recvClient.SetUpdateEvent(RecvFromClients);
+		update_gameLoop.SetUpdateEvent(TestPlayerHit);// DoNothing);
+		update_syncClient.SetUpdateEvent(SyncObjectsOfClients);
+
+		//set up recv command
+		NetworkManager::SetCommand(
+			BHID_C2S::User_TryJoin,
+			ApproveUserJoin);
+
+		NetworkManager::SetCommand(
+			BHID_C2S::Player_InputMove,
+			MovePlayer);
+
+		NetworkManager::SetCommand(
+			BHID_C2S::Player_InputHit,
+			PlayerTryHit);
+
+		NetworkManager::SetCommand(
+			BHID_C2S::User_Quit,
+			ApproveUserQuit);
+	}
+	break;
+
+	case State::Playing:
+	{
+		//set up update event
+		update_recvClient.SetUpdateEvent(RecvFromClients);
+		update_gameLoop.SetUpdateEvent(UpdateGame);
+		update_syncClient.SetUpdateEvent(SyncObjectsOfClients);
+
+		//set up recv command
+		NetworkManager::SetCommand(
+			BHID_C2S::User_TryJoin,
+			RefuseUserJoin);
+
+		NetworkManager::SetCommand(
+			BHID_C2S::Player_InputMove,
+			MovePlayer);
+
+		NetworkManager::SetCommand(
+			BHID_C2S::Player_InputHit,
+			PlayerTryHit);
+
+		NetworkManager::SetCommand(
+			BHID_C2S::User_Quit,
+			ApproveUserQuit);
+	}
+
+	break;
+
+	}
+
+}
+
+void GameManager::Loop()
+{
+	std::thread recvClient(&GameManager::RecvClientLoop, this);
+	std::thread syncClient(&GameManager::SyncClientLoop, this);
+
+	while (!threadOver)
+	{
+		//update_recvClient.Update();
+		update_gameLoop.Update();
+		//update_syncClient.Update();
+	}
 }
 
 void GameManager::SendToAll(const MsgContent& msg)
@@ -303,9 +483,22 @@ void GameManager::SetUpObjectsPosData(Data_S2C_ObjectPos2& outData)
 			continue;
 		}
 
-		outData.pos[i + 1].x = players[i].position.x;
-		outData.pos[i + 1].y = players[i].position.y;
-		outData.pos[i + 1].z = players[i].position.z;
+		outData.pos[i + 1].x = players[i]->position.x;
+		outData.pos[i + 1].y = players[i]->position.y;
+		outData.pos[i + 1].z = players[i]->position.z;
+	}
+}
+
+void GameManager::SetUpPlayersStateData(Data_S2C_PlayerState& outData)
+{
+	//set all players' pos
+	for (int i = 0; i < players.size(); i++)
+	{
+		outData.state[i] = (int)(players[i]->nowState);
+		if (players[i]->nowState == PlayerStateType::Hit)
+		{
+			break;
+		}
 	}
 }
 
@@ -323,27 +516,24 @@ void GameManager::SendRemovePlayer(int removeClientID)
 	}
 }
 
-#pragma endregion
-
-#pragma region ========== updater ==========
-void Updater::Update()
+void GameManager::RecvClientLoop()
 {
-	DWORD dwCurrentTime = timeGetTime();
-
-	//fixed update
-	if ((dwCurrentTime - dwExecLastTime) >= (1000 / FPS))
+	while (!threadOver)
 	{
-		dwExecLastTime = dwCurrentTime;
-
-		UpdateEvent();
+		update_recvClient.Update();
 	}
 }
 
-void Updater::SetUpdateEvent(std::function<void()> func)
+void GameManager::SyncClientLoop()
 {
-	UpdateEvent = func;
+	while (!threadOver)
+	{
+		update_syncClient.Update();
+	}
 }
+
 #pragma endregion
+
 
 
 
@@ -361,3 +551,5 @@ void Team::RemoveMember(Player* player)
 }
 
 #pragma endregion
+
+

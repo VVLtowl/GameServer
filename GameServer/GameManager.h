@@ -2,6 +2,7 @@
 #include "NetworkCommon.h"
 #include "SerializedTool.h"
 #include "NetworkGameData.h"
+#include "Updater.h"
 #include <functional>
 #include <vector>
 #include <list>
@@ -30,16 +31,48 @@ public:
 	Team* team;
 	Vector3 position;
 	bool host;
-	enum class State
+
+	class Hit
 	{
-		Hit,
-		None,
+	public:
+		bool isHit;
+		float rot;
+		void TriggerHitRot(float rot);
+		bool IsHit(float& outRot);
 	};
-	State state;
+	Hit hitInfo;
+
+	class State
+	{
+	public:
+		PlayerStateType type;
+		bool isLoop;
+		int maxFrame;
+		int frameCount;
+	public:
+		State();
+		void Start();
+		void Update();
+		void End();
+		void NextState();
+		std::function<void()> StartEvent;
+		std::function<void()> UpdateEvent;
+		std::function<void()> EndEvent;
+		std::function<void()> NextEvent;
+	};
+	PlayerStateType nowState;
+	State* state;
+	State state_hit;
+	State state_idle;
+	State state_run;
+	std::unordered_map<PlayerStateType,State*> states;
 
 public:
+	void ChangeToState(PlayerStateType type);
+	void Init();
+	void Update();
 	void Move(Vector3 dir);
-	void Hit();
+	void Hit(float rot);
 };
 #pragma endregion
 
@@ -58,6 +91,7 @@ public:
 	State state;
 
 public:
+	void Update();
 	void FlyTo(Vector3 dir);
 	void Fly();
 	void Land();
@@ -78,21 +112,6 @@ public:
 	void RemoveMember(Player* player);
 };
 #pragma endregion
-
-class Updater
-{
-public:
-	//time control
-	DWORD dwExecLastTime;
-	SHORT FPS;
-
-public:
-	void Update();
-	void SetUpdateEvent(std::function<void()> func = []() {});
-
-private:
-	std::function<void()> UpdateEvent;
-};
 
 /// <summary>
 /// server
@@ -120,7 +139,7 @@ public:
 	State state;
 
 	//game object
-	std::vector<Player> players;
+	std::vector<Player*> players;
 	Shuttle shuttle;
 	Team teams[2];
 
@@ -155,8 +174,8 @@ private:
 private:
 	void SetState(State sta);
 	void ResetClientsID();
-	void AddPlayer();
 	void SetUpObjectsPosData(Data_S2C_ObjectPos2& outData);
+	void SetUpPlayersStateData(Data_S2C_PlayerState& outData);
 	void SendRemovePlayer(int removeClientID);
 
 	//update func
@@ -165,6 +184,7 @@ private:
 	//std::vector<std::function<void()>> GameLoop_UpdateEvents;
 	//std::vector<std::function<void()>> SyncClient_UpdateEvents;
 	std::function<void()> DoNothing;
+	std::function<void()> TestPlayerHit;
 	std::function<void()> RecvFromClients;
 	std::function<void()> UpdateGame;
 	std::function<void()> SyncObjectsOfClients;
@@ -176,5 +196,12 @@ private:
 	std::function<void(MsgContent)> MovePlayer;
 	std::function<void(MsgContent)> PlayerTryHit;
 	std::function<void(MsgContent)> ApproveUserQuit;
+
+	//multi thread
+private:
+	void RecvClientLoop();
+	void SyncClientLoop();
+public:
+	bool threadOver = false;
 };
 

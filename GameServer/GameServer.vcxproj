@@ -148,6 +148,7 @@
     <ClCompile Include="..\..\GameNetworkCommon\GameNetworkCommon\GameNetworkCommon\NetworkGameData.cpp" />
     <ClCompile Include="..\..\GameNetworkCommon\GameNetworkCommon\GameNetworkCommon\SerializedTool.cpp" />
     <ClCompile Include="..\..\GameNetworkCommon\GameNetworkCommon\GameNetworkCommon\Server.cpp" />
+    <ClCompile Include="..\..\GameNetworkCommon\GameNetworkCommon\GameNetworkCommon\Updater.cpp" />
     <ClCompile Include="GameManager.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
@@ -157,6 +158,7 @@
     <ClInclude Include="..\..\GameNetworkCommon\GameNetworkCommon\GameNetworkCommon\NetworkGameData.h" />
     <ClInclude Include="..\..\GameNetworkCommon\GameNetworkCommon\GameNetworkCommon\SerializedTool.h" />
     <ClInclude Include="..\..\GameNetworkCommon\GameNetworkCommon\GameNetworkCommon\Server.h" />
+    <ClInclude Include="..\..\GameNetworkCommon\GameNetworkCommon\GameNetworkCommon\Updater.h" />
     <ClInclude Include="GameManager.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
